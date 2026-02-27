@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Editor from "@monaco-editor/react";
 import { socket } from "../services/socket";
 
@@ -10,9 +10,58 @@ export default function EditorPage() {
   const editorRef = useRef(null);
   const decorationsRef = useRef({});
 
-  // ==============================
+  // ==================================
+  // 🔹 FETCH VERSIONS (useCallback FIX)
+  // ==================================
+  const fetchVersions = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/rooms/versions/${roomId}`
+      );
+      const data = await res.json();
+      setVersions(data.reverse());
+    } catch (err) {
+      console.error("Fetch Versions Error:", err);
+    }
+  }, [roomId]);
+
+  // ==================================
+  // 🔹 HANDLE REMOTE CURSOR
+  // ==================================
+  const handleReceiveCursor = useCallback(
+    ({ position, userId, username }) => {
+      if (!editorRef.current) return;
+      if (userId === socket.id) return;
+
+      const monaco = window.monaco;
+
+      const decoration = {
+        range: new monaco.Range(
+          position.lineNumber,
+          position.column,
+          position.lineNumber,
+          position.column + 1
+        ),
+        options: {
+          className: "remote-cursor",
+          hoverMessage: { value: username }
+        }
+      };
+
+      const oldDecorations = decorationsRef.current[userId] || [];
+      const newDecorations = editorRef.current.deltaDecorations(
+        oldDecorations,
+        [decoration]
+      );
+
+      decorationsRef.current[userId] = newDecorations;
+    },
+    []
+  );
+
+  // ==================================
   // 🔹 JOIN ROOM + SOCKET LISTENERS
-  // ==============================
+  // ==================================
   useEffect(() => {
     socket.emit("join_room", roomId);
 
@@ -20,49 +69,34 @@ export default function EditorPage() {
     socket.on("receive_code", (data) => setCode(data));
     socket.on("receive_cursor", handleReceiveCursor);
 
-    fetchVersions(); // load versions on mount
+    fetchVersions();
 
     return () => {
       socket.off("load_code");
       socket.off("receive_code");
       socket.off("receive_cursor");
     };
-  }, [roomId]);
+  }, [roomId, fetchVersions, handleReceiveCursor]);
 
-  // ==============================
-  // 🔹 FETCH VERSIONS
-  // ==============================
-  const fetchVersions = async () => {
-    try {
-      const res = await fetch(
-        `http://localhost:5000/api/rooms/versions/${roomId}`
-      );
-      const data = await res.json();
-      setVersions(data.reverse()); // newest first
-    } catch (err) {
-      console.error("Fetch Versions Error:", err);
-    }
-  };
-
-  // ==============================
+  // ==================================
   // 🔹 HANDLE CODE CHANGE
-  // ==============================
+  // ==================================
   const handleChange = (value) => {
     setCode(value);
     socket.emit("code_change", { roomId, code: value });
   };
 
-  // ==============================
+  // ==================================
   // 🔹 SAVE VERSION
-  // ==============================
+  // ==================================
   const handleSaveVersion = () => {
     socket.emit("save_version", { roomId, code });
     fetchVersions();
   };
 
-  // ==============================
+  // ==================================
   // 🔹 RESTORE VERSION
-  // ==============================
+  // ==================================
   const handleRestoreVersion = (versionCode) => {
     socket.emit("restore_version", {
       roomId,
@@ -70,9 +104,9 @@ export default function EditorPage() {
     });
   };
 
-  // ==============================
+  // ==================================
   // 🔹 EDITOR MOUNT
-  // ==============================
+  // ==================================
   const handleEditorDidMount = (editor) => {
     editorRef.current = editor;
 
@@ -86,43 +120,11 @@ export default function EditorPage() {
     });
   };
 
-  // ==============================
-  // 🔹 HANDLE REMOTE CURSOR
-  // ==============================
-  const handleReceiveCursor = ({ position, userId, username }) => {
-    if (!editorRef.current) return;
-    if (userId === socket.id) return;
-
-    const monaco = window.monaco;
-
-    const decoration = {
-      range: new monaco.Range(
-        position.lineNumber,
-        position.column,
-        position.lineNumber,
-        position.column + 1
-      ),
-      options: {
-        className: "remote-cursor",
-        hoverMessage: { value: username }
-      }
-    };
-
-    const oldDecorations = decorationsRef.current[userId] || [];
-    const newDecorations = editorRef.current.deltaDecorations(
-      oldDecorations,
-      [decoration]
-    );
-
-    decorationsRef.current[userId] = newDecorations;
-  };
-
-  // ==============================
-  // 🔹 UI LAYOUT
-  // ==============================
+  // ==================================
+  // 🔹 UI
+  // ==================================
   return (
     <div style={{ display: "flex", height: "100vh" }}>
-
       {/* LEFT - EDITOR */}
       <div style={{ width: "75%" }}>
         <div style={{ padding: "10px", background: "#1e1e1e" }}>
