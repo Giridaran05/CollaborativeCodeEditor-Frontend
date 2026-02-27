@@ -1,71 +1,46 @@
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import EditorPage from "./pages/EditorPage";
+import { v4 as uuidv4 } from "uuid";
 
-function Home() {
+export default function Home() {
   const [roomId, setRoomId] = useState("");
   const navigate = useNavigate();
 
+  const createRoom = () => {
+    const id = uuidv4().slice(0, 8);
+    navigate(`/room/${id}`);
+  };
+
   const joinRoom = () => {
-    if (!roomId.trim()) return;
+    if (!roomId) return alert("Enter Room ID");
     navigate(`/room/${roomId}`);
   };
 
   return (
-    <div
-      style={{
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        alignItems: "center",
-        background: "#1e1e1e",
-        color: "white"
-      }}
-    >
+    <div style={{ textAlign: "center", marginTop: "150px" }}>
       <h1>🚀 Collaborative Code Editor</h1>
 
-      <input
-        type="text"
-        placeholder="Enter Room ID"
-        value={roomId}
-        onChange={(e) => setRoomId(e.target.value)}
-        style={{
-          padding: "10px",
-          marginTop: "20px",
-          width: "250px",
-          borderRadius: "5px",
-          border: "none"
-        }}
-      />
-
       <button
-        onClick={joinRoom}
-        style={{
-          marginTop: "15px",
-          padding: "10px 20px",
-          background: "#007acc",
-          color: "white",
-          border: "none",
-          borderRadius: "5px",
-          cursor: "pointer"
-        }}
+        onClick={createRoom}
+        style={{ padding: "10px 20px", margin: "10px" }}
       >
-        Join Room
+        Create Room
       </button>
+
+      <div style={{ marginTop: "20px" }}>
+        <input
+          placeholder="Enter Room ID"
+          value={roomId}
+          onChange={(e) => setRoomId(e.target.value)}
+          style={{ padding: "8px" }}
+        />
+        <button
+          onClick={joinRoom}
+          style={{ padding: "8px 15px", marginLeft: "5px" }}
+        >
+          Join Room
+        </button>
+      </div>
     </div>
   );
 }
-
-function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/room/:roomId" element={<EditorPage />} />
-      </Routes>
-    </BrowserRouter>
-  );
-}
-
-export default App;
